@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 170
-PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC']
+PARTIES = ['LPC', 'CPC', 'BQ', 'NDP', 'GPC', 'PPC']
 
 # Party colors
 party_colors = {
@@ -19,42 +19,38 @@ party_colors = {
     'PPC': '#6F259C'
 }
 
-# ------------ FAKE FINAL RESULTS ------------
-# You can adjust these numbers to simulate different outcomes!
-
+# ------------ FINAL RESULTS BASED ON 338Canada (April 26, 2025) ------------
 final_projection = {
-    'LPC': {'median': 138, 'low': 130, 'high': 146},
-    'CPC': {'median': 150, 'low': 142, 'high': 158},
-    'NDP': {'median': 28, 'low': 24, 'high': 32},
-    'BQ':  {'median': 31, 'low': 28, 'high': 34},
-    'GPC': {'median': 3, 'low': 2, 'high': 4},
-    'PPC': {'median': 1, 'low': 0, 'high': 2}
+    'LPC': {'median': 186, 'low': 172, 'high': 200},
+    'CPC': {'median': 126, 'low': 110, 'high': 140},
+    'BQ':  {'median': 23,  'low': 18,  'high': 28},
+    'NDP': {'median': 7,   'low': 4,   'high': 10},
+    'GPC': {'median': 1,   'low': 0,   'high': 2},
+    'PPC': {'median': 0,   'low': 0,   'high': 1}
 }
 
-# Simulate historical seat tracker (fake snapshots during night)
+# Fake historical seat tracker
 history_tracker = [
-    {'LPC': 140, 'CPC': 145, 'NDP': 30, 'BQ': 32, 'GPC': 2, 'PPC': 1},
-    {'LPC': 138, 'CPC': 150, 'NDP': 28, 'BQ': 31, 'GPC': 3, 'PPC': 1}
+    {'LPC': 180, 'CPC': 130, 'BQ': 22, 'NDP': 8, 'GPC': 1, 'PPC': 0},
+    {'LPC': 186, 'CPC': 126, 'BQ': 23, 'NDP': 7, 'GPC': 1, 'PPC': 0}
 ]
 
 # ------------ STREAMLIT APP ------------
-
 st.set_page_config(page_title="Canadian Election Final Needle", layout="centered")
 
 st.title("🇨🇦 Final Canadian Election Projection")
-st.caption("Static view — Final predicted results")
+st.caption("Static view — Final predicted results (April 26, 2025)")
 
-# Fetch current "final" results
+# Fetch final results
 data = final_projection
 parties = list(data.keys())
 medians = [data[p]['median'] for p in parties]
 ci_lows = [data[p]['low'] for p in parties]
 ci_highs = [data[p]['high'] for p in parties]
 
-# ------------ FINAL NUMBERS CLEAR DISPLAY ------------
+# ------------ CLEAR FINAL NUMBERS ------------
 st.subheader("📋 Final Projected Seat Totals")
 
-# Create simple seat count table
 seat_data = {party: data[party]['median'] for party in parties}
 seat_df = pd.DataFrame.from_dict(seat_data, orient='index', columns=['Projected Seats'])
 seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
@@ -64,30 +60,28 @@ st.table(seat_df)
 # ------------ NYT-STYLE ANIMATED NEEDLE ------------
 st.subheader("🧭 Final Needle - NYT Animated Style")
 
-# Assume two main parties: LPC and CPC
 total_medians = sum(medians)
 probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
 
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Calculate base needle position
+# Base needle position
 base_needle_position = lpc_share / (lpc_share + cpc_share)
 
 # Add slight jitter to simulate animation
-needle_jitter = np.random.normal(0, 0.01)  # small random noise
+needle_jitter = np.random.normal(0, 0.01)
 needle_position = np.clip(base_needle_position + needle_jitter, 0, 1)
 
-fig2, ax2 = plt.subplots(figsize=(10, 1.5))
+fig2, ax2 = plt.subplots(figsize=(10, 2))
 
 # Create a thin horizontal bar
 ax2.barh(0, needle_position, color=party_colors['LPC'], edgecolor='black')
 ax2.barh(0, 1-needle_position, left=needle_position, color=party_colors['CPC'], edgecolor='black')
 
-# Draw the needle (vertical line)
+# Draw needle (simple marker for now)
 ax2.plot([needle_position], [0], marker='v', markersize=20, color='black')
 
-# Style adjustments
 ax2.set_xlim(0, 1)
 ax2.set_ylim(-0.5, 0.5)
 ax2.set_yticks([])
@@ -99,7 +93,7 @@ ax2.axis('off')
 
 st.pyplot(fig2)
 
-# ------------ MAJORITY / MINORITY OUTCOME ------------
+# ------------ FINAL WINNER / MAJORITY CALL ------------
 st.subheader("🎯 Final Majority / Minority Status")
 
 winner = max(data.items(), key=lambda x: x[1]['median'])[0]
@@ -132,7 +126,7 @@ ax.grid(True, linestyle='--', axis='x', alpha=0.5)
 
 st.pyplot(fig)
 
-# ------------ FINAL SEAT TRACKER ------------
+# ------------ FINAL SEAT TRACKER TREND ------------
 if len(history_tracker) > 1:
     st.subheader("📊 Seat Projection Tracker (Election Night Trend)")
 
