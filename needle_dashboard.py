@@ -58,25 +58,25 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ NYT-STYLE CLOCK NEEDLE ------------
-st.subheader("🧭 Final Needle - Clock Style")
+# ------------ NYT-STYLE CLOCK NEEDLE WITH MAJORITY/MINORITY ZONES ------------
+import math
 
-total_medians = sum(medians)
-probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
+st.subheader("🧭 Final Needle - Clock Style with Zones")
 
+# Assume two main parties: LPC and CPC
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Base needle position (centered at 0.5)
+# Base needle position
 base_position = lpc_share / (lpc_share + cpc_share)
-deviation = (base_position - 0.5) * 2  # Scale: -1 (full left) to +1 (full right)
+deviation = (base_position - 0.5) * 2  # Scale from -1 (left) to +1 (right)
 
 # Add slight jitter
 needle_jitter = np.random.normal(0, 0.02)
 deviation = np.clip(deviation + needle_jitter, -1, 1)
 
 # Needle angle
-max_angle = math.radians(30)  # Max swing ±30 degrees
+max_angle = math.radians(30)  # Max swing = ±30 degrees
 needle_angle = deviation * max_angle
 
 # Needle end coordinates
@@ -91,19 +91,50 @@ fig, ax = plt.subplots(figsize=(8, 6))
 arc = plt.Circle((0.5, 0), 0.5, color='lightgray', fill=False, linewidth=2)
 ax.add_artist(arc)
 
-# Draw needle
+# Draw shaded regions for minority/majority
+# Minority zone shading (left and right edges)
+ax.fill_betweenx(
+    y=[0, 0.25],
+    x1=0.0,
+    x2=0.5 - 0.1,
+    color='lightblue',
+    alpha=0.2
+)
+ax.fill_betweenx(
+    y=[0, 0.25],
+    x1=0.5 + 0.1,
+    x2=1.0,
+    color='lightcoral',
+    alpha=0.2
+)
+
+# Majority zone (small centered section)
+ax.fill_betweenx(
+    y=[0, 0.25],
+    x1=0.5 - 0.1,
+    x2=0.5 + 0.1,
+    color='lightgreen',
+    alpha=0.2
+)
+
+# Draw the needle
 ax.plot([center_x, end_x], [center_y, end_y], color='black', linewidth=4)
 
-# Style
+# Styling
 ax.set_xlim(0, 1)
 ax.set_ylim(-0.1, 0.6)
 ax.set_xticks([])
 ax.set_yticks([])
 ax.axis('off')
 
-# Labels
-ax.text(0.05, -0.05, "Liberals favored", ha='left', va='top', fontsize=12)
-ax.text(0.95, -0.05, "Conservatives favored", ha='right', va='top', fontsize=12)
+# Labels under arc
+ax.text(0.25, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
+ax.text(0.75, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
+ax.text(0.5, 0.45, "Majority Zone", ha='center', va='center', fontsize=12, weight='bold')
+
+# Party favored labels (left-right)
+ax.text(0.05, -0.1, "Liberals favored", ha='left', va='top', fontsize=10)
+ax.text(0.95, -0.1, "Conservatives favored", ha='right', va='top', fontsize=10)
 
 st.pyplot(fig)
 
