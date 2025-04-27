@@ -42,17 +42,27 @@ st.set_page_config(page_title="Canadian Election Final Needle", layout="centered
 st.title("🇨🇦 Final Canadian Election Projection")
 st.caption("Static view — Final predicted results (April 26, 2025)")
 
-# ------------ TEST SIMULATION MODE ------------
-TEST_MODE = st.sidebar.checkbox("🧪 Enable Test Simulation Mode", value=False)
+# ------------ WILD TEST SIMULATION MODE ------------
+TEST_MODE = st.sidebar.selectbox(
+    "🧪 Test Simulation Mode",
+    options=["Off", "Normal (10s small swings)", "Wild (5s big swings)"],
+    index=0
+)
 
-if TEST_MODE:
-    st.sidebar.warning("Test Simulation Active: Refreshing every 10 seconds")
+if TEST_MODE == "Normal (10s small swings)":
+    st.sidebar.warning("Normal Test Mode: Refreshing every 10 seconds, small seat changes.")
     time.sleep(10)
-
-    # Randomly adjust medians slightly
     for party in final_projection.keys():
         adjustment = np.random.randint(-5, 6)
         final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
+elif TEST_MODE == "Wild (5s big swings)":
+    st.sidebar.warning("⚡ Wild Test Mode: Refreshing every 5 seconds, big chaotic swings!")
+    time.sleep(5)
+    for party in final_projection.keys():
+        adjustment = np.random.randint(-20, 21)  # wild swings
+        final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
 
 # ------------ FINAL RESULTS ------------
 data = final_projection
