@@ -4,7 +4,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import math
+import time
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 170
@@ -35,12 +38,25 @@ history_tracker = [
     {'LPC': 186, 'CPC': 126, 'BQ': 23, 'NDP': 7, 'GPC': 1, 'PPC': 0}
 ]
 
-# ------------ STREAMLIT APP ------------
+# ------------ STREAMLIT APP SETUP ------------
 st.set_page_config(page_title="Canadian Election Final Needle", layout="centered")
 
 st.title("🇨🇦 Final Canadian Election Projection")
 st.caption("Static view — Final predicted results (April 26, 2025)")
 
+# ------------ TEST SIMULATION MODE ------------
+TEST_MODE = st.sidebar.checkbox("🧪 Enable Test Simulation Mode", value=False)
+
+if TEST_MODE:
+    st.sidebar.warning("Test Simulation Active: Refreshing every 10 seconds")
+    time.sleep(10)
+
+    # Randomly adjust medians slightly
+    for party in final_projection.keys():
+        adjustment = np.random.randint(-5, 6)
+        final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
+# ------------ FINAL RESULTS ------------
 data = final_projection
 parties = list(data.keys())
 medians = [data[p]['median'] for p in parties]
@@ -66,7 +82,7 @@ probabilities = {party: (median / total_medians) for party, median in zip(partie
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Base deviation: -1 (full Liberal majority) to +1 (full CPC majority)
+# Base deviation
 base_position = lpc_share / (lpc_share + cpc_share)
 deviation = (base_position - 0.5) * 2
 
@@ -74,12 +90,12 @@ deviation = (base_position - 0.5) * 2
 needle_jitter = np.random.normal(0, 0.01)
 deviation = np.clip(deviation + needle_jitter, -1, 1)
 
-# Map deviation [-1,1] to position [0,1]
+# Map deviation [-1,1] to [0,1]
 slider_position = (deviation + 1) / 2
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Base bar
+# Draw base bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
 # Color zones
@@ -88,8 +104,11 @@ ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal M
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Maple Leaf indicator
-ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
+# Load and plot Maple Leaf Image
+leaf_img = mpimg.imread('maple_leaf.png')  # You need maple_leaf.png in your project folder
+imagebox = OffsetImage(leaf_img, zoom=0.08)
+ab = AnnotationBbox(imagebox, (slider_position, 0.05), frameon=False)
+ax.add_artist(ab)
 
 # Labels
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
@@ -97,7 +116,6 @@ ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
 ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
 ax.text(0.875, -0.3, "CPC Majority", ha='center', va='center', fontsize=10)
 
-# Hide axes
 ax.set_xlim(0, 1)
 ax.set_ylim(-0.6, 0.6)
 ax.axis('off')
