@@ -42,12 +42,16 @@ st.set_page_config(page_title="Canadian Election Final Needle", layout="centered
 st.title("🇨🇦 Final Canadian Election Projection")
 st.caption("Static view — Final predicted results (April 26, 2025)")
 
-# ------------ WILD TEST SIMULATION MODE ------------
+# ------------ TEST SIMULATION MODE ------------
 TEST_MODE = st.sidebar.selectbox(
     "🧪 Test Simulation Mode",
-    options=["Off", "Normal (10s small swings)", "Wild (5s big swings)"],
+    options=["Off", "Normal (10s small swings)", "Wild (5s big swings)", "Elections Canada Simulator"],
     index=0
 )
+
+# Tracking % reporting for Elections Canada Simulator
+if 'votes_counted_pct' not in st.session_state:
+    st.session_state.votes_counted_pct = 0
 
 if TEST_MODE == "Normal (10s small swings)":
     st.sidebar.warning("Normal Test Mode: Refreshing every 10 seconds, small seat changes.")
@@ -60,9 +64,24 @@ elif TEST_MODE == "Wild (5s big swings)":
     st.sidebar.warning("⚡ Wild Test Mode: Refreshing every 5 seconds, big chaotic swings!")
     time.sleep(5)
     for party in final_projection.keys():
-        adjustment = np.random.randint(-20, 21)  # wild swings
+        adjustment = np.random.randint(-20, 21)
         final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
 
+elif TEST_MODE == "Elections Canada Simulator":
+    st.sidebar.warning("🗳️ Elections Canada Simulator Active: Simulating votes coming in.")
+    time.sleep(5)
+    # Increase counted votes
+    if st.session_state.votes_counted_pct < 100:
+        increase = np.random.randint(3, 8)  # +3% to +7% votes counted per update
+        st.session_state.votes_counted_pct = min(100, st.session_state.votes_counted_pct + increase)
+
+        uncertainty_factor = (100 - st.session_state.votes_counted_pct) / 100  # Higher uncertainty early on
+
+        for party in final_projection.keys():
+            adjustment = int(np.random.normal(0, 10 * uncertainty_factor))  # Wild early, small late
+            final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
+    st.sidebar.info(f"📊 Votes counted: **{st.session_state.votes_counted_pct}%**")
 
 # ------------ FINAL RESULTS ------------
 data = final_projection
@@ -80,8 +99,8 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ FIXED MAPLE LEAF SLIDING SCALE (Smart version) ------------
-st.subheader("🍁 Final Election Needle - Corrected Maple Leaf Sliding Scale")
+# ------------ MAPLE LEAF SLIDING SCALE (SMART VERSION) ------------
+st.subheader("🍁 Final Election Needle - Maple Leaf Sliding Scale")
 
 # Get main party seat projections
 lpc_seats = final_projection['LPC']['median']
@@ -102,7 +121,7 @@ slider_position = np.clip(slider_base + np.random.normal(0, 0.02), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Draw bar
+# Draw base bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
 # Color zones
@@ -111,7 +130,7 @@ ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal M
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Maple Leaf indicator (emoji)
+# Maple Leaf emoji as the needle
 ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
 # Labels
@@ -184,21 +203,3 @@ ax.grid(True, linestyle='--', axis='x', alpha=0.5)
 
 st.pyplot(fig)
 
-# ------------ FINAL SEAT TRACKER TREND ------------
-if len(history_tracker) > 1:
-    st.subheader("📊 Seat Projection Tracker (Election Night Trend)")
-
-    history_df = pd.DataFrame(history_tracker)
-
-    fig3, ax3 = plt.subplots(figsize=(12, 6))
-
-    for party in history_df.columns:
-        ax3.plot(history_df.index, history_df[party], label=party, color=party_colors[party])
-
-    ax3.set_xlabel('Update Cycle (Snapshot)')
-    ax3.set_ylabel('Projected Seats')
-    ax3.set_title('Seat Projection Tracker Over Election Night')
-    ax3.grid(True, linestyle='--', alpha=0.5)
-    ax3.legend()
-
-    st.pyplot(fig3)
