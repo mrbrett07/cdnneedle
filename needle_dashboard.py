@@ -70,30 +70,29 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ MAPLE LEAF SLIDING SCALE (EMOJI VERSION) ------------
-st.subheader("🍁 Final Election Needle - Maple Leaf Emoji Sliding Scale")
+# ------------ FIXED MAPLE LEAF SLIDING SCALE (Smart version) ------------
+st.subheader("🍁 Final Election Needle - Corrected Maple Leaf Sliding Scale")
 
-# Calculate probabilities
-total_medians = sum(medians)
-probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
+# Get main party seat projections
+lpc_seats = final_projection['LPC']['median']
+cpc_seats = final_projection['CPC']['median']
 
-lpc_share = probabilities['LPC']
-cpc_share = probabilities['CPC']
-
-# Base deviation
-base_position = lpc_share / (lpc_share + cpc_share)
-deviation = (base_position - 0.5) * 2
+# Map correctly:
+if lpc_seats >= MAJORITY_THRESHOLD:
+    slider_base = 0.125  # Liberal Majority
+elif lpc_seats > cpc_seats:
+    slider_base = 0.375  # Liberal Minority
+elif cpc_seats >= MAJORITY_THRESHOLD:
+    slider_base = 0.875  # CPC Majority
+else:
+    slider_base = 0.625  # CPC Minority
 
 # Add slight jitter
-needle_jitter = np.random.normal(0, 0.01)
-deviation = np.clip(deviation + needle_jitter, -1, 1)
-
-# Map deviation [-1,1] to [0,1]
-slider_position = (deviation + 1) / 2
+slider_position = np.clip(slider_base + np.random.normal(0, 0.02), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Draw base bar
+# Draw bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
 # Color zones
@@ -102,7 +101,7 @@ ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal M
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Plot maple leaf emoji at slider position
+# Maple Leaf indicator (emoji)
 ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
 # Labels
@@ -122,14 +121,14 @@ st.subheader("📊 Party Majority / Minority Chances")
 
 simulations = {party: np.random.normal(loc=data[party]['median'], scale=5, size=1000) for party in PARTIES}
 
-cpc_seats = simulations['CPC']
-lpc_seats = simulations['LPC']
+cpc_sim = simulations['CPC']
+lpc_sim = simulations['LPC']
 
-cpc_majority_chance = (cpc_seats >= MAJORITY_THRESHOLD).mean()
-lpc_majority_chance = (lpc_seats >= MAJORITY_THRESHOLD).mean()
+cpc_majority_chance = (cpc_sim >= MAJORITY_THRESHOLD).mean()
+lpc_majority_chance = (lpc_sim >= MAJORITY_THRESHOLD).mean()
 
-cpc_lead_chance = (cpc_seats > lpc_seats).mean()
-lpc_lead_chance = (lpc_seats > cpc_seats).mean()
+cpc_lead_chance = (cpc_sim > lpc_sim).mean()
+lpc_lead_chance = (lpc_sim > cpc_sim).mean()
 
 cpc_minority_chance = cpc_lead_chance - cpc_majority_chance
 lpc_minority_chance = lpc_lead_chance - lpc_majority_chance
