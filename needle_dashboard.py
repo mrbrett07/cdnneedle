@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 170
@@ -57,8 +58,8 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ NYT-STYLE ANIMATED NEEDLE ------------
-st.subheader("🧭 Final Needle - NYT Animated Style")
+# ------------ NYT-STYLE CLOCK NEEDLE ------------
+st.subheader("🧭 Final Needle - Clock Style")
 
 total_medians = sum(medians)
 probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
@@ -66,32 +67,45 @@ probabilities = {party: (median / total_medians) for party, median in zip(partie
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Base needle position
-base_needle_position = lpc_share / (lpc_share + cpc_share)
+# Base needle position (centered at 0.5)
+base_position = lpc_share / (lpc_share + cpc_share)
+deviation = (base_position - 0.5) * 2  # Scale: -1 (full left) to +1 (full right)
 
-# Add slight jitter to simulate animation
-needle_jitter = np.random.normal(0, 0.01)
-needle_position = np.clip(base_needle_position + needle_jitter, 0, 1)
+# Add slight jitter
+needle_jitter = np.random.normal(0, 0.02)
+deviation = np.clip(deviation + needle_jitter, -1, 1)
 
-fig2, ax2 = plt.subplots(figsize=(10, 2))
+# Needle angle
+max_angle = math.radians(30)  # Max swing ±30 degrees
+needle_angle = deviation * max_angle
 
-# Create a thin horizontal bar
-ax2.barh(0, needle_position, color=party_colors['LPC'], edgecolor='black')
-ax2.barh(0, 1-needle_position, left=needle_position, color=party_colors['CPC'], edgecolor='black')
+# Needle end coordinates
+needle_length = 0.4
+center_x, center_y = 0.5, 0
+end_x = center_x + needle_length * math.sin(needle_angle)
+end_y = center_y + needle_length * math.cos(needle_angle)
 
-# Draw needle (simple marker for now)
-ax2.plot([needle_position], [0], marker='v', markersize=20, color='black')
+fig, ax = plt.subplots(figsize=(8, 6))
 
-ax2.set_xlim(0, 1)
-ax2.set_ylim(-0.5, 0.5)
-ax2.set_yticks([])
-ax2.set_xticks(np.linspace(0, 1, 11))
-ax2.set_xticklabels([f"{int(x*100)}%" for x in np.linspace(0, 1, 11)])
-ax2.text(0.01, -0.3, "Liberals favored", ha='left', va='center', fontsize=10)
-ax2.text(0.99, -0.3, "Conservatives favored", ha='right', va='center', fontsize=10)
-ax2.axis('off')
+# Draw background arc
+arc = plt.Circle((0.5, 0), 0.5, color='lightgray', fill=False, linewidth=2)
+ax.add_artist(arc)
 
-st.pyplot(fig2)
+# Draw needle
+ax.plot([center_x, end_x], [center_y, end_y], color='black', linewidth=4)
+
+# Style
+ax.set_xlim(0, 1)
+ax.set_ylim(-0.1, 0.6)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.axis('off')
+
+# Labels
+ax.text(0.05, -0.05, "Liberals favored", ha='left', va='top', fontsize=12)
+ax.text(0.95, -0.05, "Conservatives favored", ha='right', va='top', fontsize=12)
+
+st.pyplot(fig)
 
 # ------------ FINAL WINNER / MAJORITY CALL ------------
 st.subheader("🎯 Final Majority / Minority Status")
@@ -121,7 +135,7 @@ ax.axvline(MAJORITY_THRESHOLD, color='black', linestyle='--', linewidth=1.5)
 ax.text(MAJORITY_THRESHOLD + 1, -0.5, f'Majority ({MAJORITY_THRESHOLD} seats)', verticalalignment='bottom', fontsize=9)
 
 ax.set_xlabel('Projected Seats')
-ax.set_title('Final Needle Forecast')
+ax.set_title('Final Needle Forecast")
 ax.grid(True, linestyle='--', axis='x', alpha=0.5)
 
 st.pyplot(fig)
