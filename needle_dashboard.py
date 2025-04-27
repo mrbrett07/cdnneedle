@@ -135,7 +135,7 @@ ax.axvline(MAJORITY_THRESHOLD, color='black', linestyle='--', linewidth=1.5)
 ax.text(MAJORITY_THRESHOLD + 1, -0.5, f'Majority ({MAJORITY_THRESHOLD} seats)', verticalalignment='bottom', fontsize=9)
 
 ax.set_xlabel('Projected Seats')
-ax.set_title('Final Needle Forecast")
+ax.set_title('Final Needle Forecast')
 ax.grid(True, linestyle='--', axis='x', alpha=0.5)
 
 st.pyplot(fig)
