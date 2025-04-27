@@ -10,7 +10,6 @@ import math
 MAJORITY_THRESHOLD = 170
 PARTIES = ['LPC', 'CPC', 'BQ', 'NDP', 'GPC', 'PPC']
 
-# Party colors
 party_colors = {
     'LPC': '#EF3B2C',
     'CPC': '#1C3F94',
@@ -30,7 +29,7 @@ final_projection = {
     'PPC': {'median': 0,   'low': 0,   'high': 1}
 }
 
-# Fake historical seat tracker
+# Fake history tracker
 history_tracker = [
     {'LPC': 180, 'CPC': 130, 'BQ': 22, 'NDP': 8, 'GPC': 1, 'PPC': 0},
     {'LPC': 186, 'CPC': 126, 'BQ': 23, 'NDP': 7, 'GPC': 1, 'PPC': 0}
@@ -42,7 +41,6 @@ st.set_page_config(page_title="Canadian Election Final Needle", layout="centered
 st.title("🇨🇦 Final Canadian Election Projection")
 st.caption("Static view — Final predicted results (April 26, 2025)")
 
-# Fetch final results
 data = final_projection
 parties = list(data.keys())
 medians = [data[p]['median'] for p in parties]
@@ -59,27 +57,27 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 st.table(seat_df)
 
 # ------------ NYT-STYLE CLOCK NEEDLE WITH MAJORITY/MINORITY ZONES ------------
-import math
-
 st.subheader("🧭 Final Needle - Clock Style with Zones")
 
-# Assume two main parties: LPC and CPC
+total_medians = sum(medians)
+probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
+
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Base needle position
+# Base deviation: from -1 (fully left) to +1 (fully right)
 base_position = lpc_share / (lpc_share + cpc_share)
-deviation = (base_position - 0.5) * 2  # Scale from -1 (left) to +1 (right)
+deviation = (base_position - 0.5) * 2
 
 # Add slight jitter
 needle_jitter = np.random.normal(0, 0.02)
 deviation = np.clip(deviation + needle_jitter, -1, 1)
 
 # Needle angle
-max_angle = math.radians(30)  # Max swing = ±30 degrees
+max_angle = math.radians(30)  # ±30 degrees
 needle_angle = deviation * max_angle
 
-# Needle end coordinates
+# Needle coordinates
 needle_length = 0.4
 center_x, center_y = 0.5, 0
 end_x = center_x + needle_length * math.sin(needle_angle)
@@ -87,12 +85,12 @@ end_y = center_y + needle_length * math.cos(needle_angle)
 
 fig, ax = plt.subplots(figsize=(8, 6))
 
-# Draw background arc
+# Draw arc
 arc = plt.Circle((0.5, 0), 0.5, color='lightgray', fill=False, linewidth=2)
 ax.add_artist(arc)
 
-# Draw shaded regions for minority/majority
-# Minority zone shading (left and right edges)
+# Shading areas
+# Minority left
 ax.fill_betweenx(
     y=[0, 0.25],
     x1=0.0,
@@ -100,6 +98,7 @@ ax.fill_betweenx(
     color='lightblue',
     alpha=0.2
 )
+# Minority right
 ax.fill_betweenx(
     y=[0, 0.25],
     x1=0.5 + 0.1,
@@ -107,8 +106,7 @@ ax.fill_betweenx(
     color='lightcoral',
     alpha=0.2
 )
-
-# Majority zone (small centered section)
+# Majority center
 ax.fill_betweenx(
     y=[0, 0.25],
     x1=0.5 - 0.1,
@@ -127,12 +125,10 @@ ax.set_xticks([])
 ax.set_yticks([])
 ax.axis('off')
 
-# Labels under arc
+# Labels
 ax.text(0.25, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
 ax.text(0.75, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
 ax.text(0.5, 0.45, "Majority Zone", ha='center', va='center', fontsize=12, weight='bold')
-
-# Party favored labels (left-right)
 ax.text(0.05, -0.1, "Liberals favored", ha='left', va='top', fontsize=10)
 ax.text(0.95, -0.1, "Conservatives favored", ha='right', va='top', fontsize=10)
 
@@ -141,7 +137,6 @@ st.pyplot(fig)
 # ------------ PARTY MAJORITY / MINORITY PROBABILITIES ------------
 st.subheader("📊 Party Majority / Minority Chances")
 
-# Simulate 1000 random seat projections
 simulations = {party: np.random.normal(loc=data[party]['median'], scale=5, size=1000) for party in PARTIES}
 
 cpc_seats = simulations['CPC']
@@ -156,7 +151,6 @@ lpc_lead_chance = (lpc_seats > cpc_seats).mean()
 cpc_minority_chance = cpc_lead_chance - cpc_majority_chance
 lpc_minority_chance = lpc_lead_chance - lpc_majority_chance
 
-# Show results
 st.markdown("### Conservatives (CPC)")
 st.write(f"• **Majority chance**: {cpc_majority_chance:.1%}")
 st.write(f"• **Minority lead chance**: {cpc_minority_chance:.1%}")
@@ -216,3 +210,4 @@ if len(history_tracker) > 1:
     ax3.legend()
 
     st.pyplot(fig3)
+
