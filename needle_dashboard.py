@@ -4,8 +4,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import math
 import time
 
@@ -72,8 +70,8 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ MAPLE LEAF SLIDING SCALE NEEDLE ------------
-st.subheader("🍁 Final Election Needle - Maple Leaf Sliding Scale")
+# ------------ MAPLE LEAF SLIDING SCALE (EMOJI VERSION) ------------
+st.subheader("🍁 Final Election Needle - Maple Leaf Emoji Sliding Scale")
 
 # Calculate probabilities
 total_medians = sum(medians)
@@ -104,11 +102,8 @@ ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal M
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Load and plot Maple Leaf Image
-leaf_img = mpimg.imread('maple_leaf.png')  # You need maple_leaf.png in your project folder
-imagebox = OffsetImage(leaf_img, zoom=0.08)
-ab = AnnotationBbox(imagebox, (slider_position, 0.05), frameon=False)
-ax.add_artist(ab)
+# Plot maple leaf emoji at slider position
+ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
 # Labels
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
