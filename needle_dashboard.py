@@ -49,7 +49,7 @@ medians = [data[p]['median'] for p in parties]
 ci_lows = [data[p]['low'] for p in parties]
 ci_highs = [data[p]['high'] for p in parties]
 
-# ------------ CLEAR FINAL NUMBERS ------------
+# ------------ FINAL NUMBERS DISPLAY ------------
 st.subheader("📋 Final Projected Seat Totals")
 
 seat_data = {party: data[party]['median'] for party in parties}
@@ -107,6 +107,33 @@ ax.text(0.95, -0.05, "Conservatives favored", ha='right', va='top', fontsize=12)
 
 st.pyplot(fig)
 
+# ------------ PARTY MAJORITY / MINORITY PROBABILITIES ------------
+st.subheader("📊 Party Majority / Minority Chances")
+
+# Simulate 1000 random seat projections
+simulations = {party: np.random.normal(loc=data[party]['median'], scale=5, size=1000) for party in PARTIES}
+
+cpc_seats = simulations['CPC']
+lpc_seats = simulations['LPC']
+
+cpc_majority_chance = (cpc_seats >= MAJORITY_THRESHOLD).mean()
+lpc_majority_chance = (lpc_seats >= MAJORITY_THRESHOLD).mean()
+
+cpc_lead_chance = (cpc_seats > lpc_seats).mean()
+lpc_lead_chance = (lpc_seats > cpc_seats).mean()
+
+cpc_minority_chance = cpc_lead_chance - cpc_majority_chance
+lpc_minority_chance = lpc_lead_chance - lpc_majority_chance
+
+# Show results
+st.markdown("### Conservatives (CPC)")
+st.write(f"• **Majority chance**: {cpc_majority_chance:.1%}")
+st.write(f"• **Minority lead chance**: {cpc_minority_chance:.1%}")
+
+st.markdown("### Liberals (LPC)")
+st.write(f"• **Majority chance**: {lpc_majority_chance:.1%}")
+st.write(f"• **Minority lead chance**: {lpc_minority_chance:.1%}")
+
 # ------------ FINAL WINNER / MAJORITY CALL ------------
 st.subheader("🎯 Final Majority / Minority Status")
 
@@ -135,7 +162,7 @@ ax.axvline(MAJORITY_THRESHOLD, color='black', linestyle='--', linewidth=1.5)
 ax.text(MAJORITY_THRESHOLD + 1, -0.5, f'Majority ({MAJORITY_THRESHOLD} seats)', verticalalignment='bottom', fontsize=9)
 
 ax.set_xlabel('Projected Seats')
-ax.set_title('Final Needle Forecast')
+ax.set_title('Final Needle Forecast")
 ax.grid(True, linestyle='--', axis='x', alpha=0.5)
 
 st.pyplot(fig)
