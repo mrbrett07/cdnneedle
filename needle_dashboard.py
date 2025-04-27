@@ -1,4 +1,4 @@
-# needle_final_results_live.py
+# needle_final_results.py
 
 import streamlit as st
 import pandas as pd
@@ -6,11 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import time
-import os
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 170
-EXPECTED_PARTIES = ['LPC', 'CPC', 'BQ', 'NDP', 'GPC', 'PPC']
+PARTIES = ['LPC', 'CPC', 'BQ', 'NDP', 'GPC', 'PPC']
 
 party_colors = {
     'LPC': '#EF3B2C',
@@ -21,40 +20,71 @@ party_colors = {
     'PPC': '#6F259C'
 }
 
-# ------------ STREAMLIT SETUP ------------
-st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
+# ------------ FINAL RESULTS BASED ON 338Canada (April 26, 2025) ------------
+final_projection = {
+    'LPC': {'median': 186, 'low': 172, 'high': 200},
+    'CPC': {'median': 126, 'low': 110, 'high': 140},
+    'BQ':  {'median': 23,  'low': 18,  'high': 28},
+    'NDP': {'median': 7,   'low': 4,   'high': 10},
+    'GPC': {'median': 1,   'low': 0,   'high': 2},
+    'PPC': {'median': 0,   'low': 0,   'high': 1}
+}
 
-st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("Live Needle Tracking (updated every 30 seconds)")
+# Fake history tracker
+history_tracker = [
+    {'LPC': 180, 'CPC': 130, 'BQ': 22, 'NDP': 8, 'GPC': 1, 'PPC': 0},
+    {'LPC': 186, 'CPC': 126, 'BQ': 23, 'NDP': 7, 'GPC': 1, 'PPC': 0}
+]
 
-# ------------ LOAD LIVE RESULTS ------------
-def load_live_data():
-    if os.path.exists("results.csv"):
-        df = pd.read_csv("results.csv")
-        df = df[df['Party'].isin(EXPECTED_PARTIES)]
-        df = df.set_index('Party').to_dict()['Projected Seats']
-        return df
-    else:
-        st.error("No results.csv file found! Waiting for live results...")
-        st.stop()
+# ------------ STREAMLIT APP SETUP ------------
+st.set_page_config(page_title="Canadian Election Final Needle", layout="centered")
 
-final_projection = load_live_data()
+st.title("🇨🇦 Final Canadian Election Projection")
+st.caption("Static view — Final predicted results (April 26, 2025)")
+
+# ------------ TEST SIMULATION MODE ------------
+TEST_MODE = st.sidebar.selectbox(
+    "🧪 Test Simulation Mode",
+    options=["Off", "Normal (10s small swings)", "Wild (5s big swings)"],
+    index=0
+)
+
+if TEST_MODE == "Normal (10s small swings)":
+    st.sidebar.warning("Normal Test Mode: Refreshing every 10 seconds, small seat changes.")
+    time.sleep(10)
+    for party in final_projection.keys():
+        adjustment = np.random.randint(-5, 6)
+        final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
+elif TEST_MODE == "Wild (5s big swings)":
+    st.sidebar.warning("⚡ Wild Test Mode: Refreshing every 5 seconds, big chaotic swings!")
+    time.sleep(5)
+    for party in final_projection.keys():
+        adjustment = np.random.randint(-20, 21)  # wild swings
+        final_projection[party]['median'] = max(0, final_projection[party]['median'] + adjustment)
+
+# ------------ FINAL RESULTS ------------
+data = final_projection
+parties = list(data.keys())
+medians = [data[p]['median'] for p in parties]
+ci_lows = [data[p]['low'] for p in parties]
+ci_highs = [data[p]['high'] for p in parties]
 
 # ------------ FINAL NUMBERS DISPLAY ------------
-st.subheader("📋 Current Projected Seat Totals")
+st.subheader("📋 Final Projected Seat Totals")
 
-seat_data = {party: final_projection.get(party, 0) for party in EXPECTED_PARTIES}
+seat_data = {party: data[party]['median'] for party in parties}
 seat_df = pd.DataFrame.from_dict(seat_data, orient='index', columns=['Projected Seats'])
 seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
 # ------------ MAPLE LEAF SLIDING SCALE (SMART VERSION) ------------
-st.subheader("🍁 Live Election Needle")
+st.subheader("🍁 Final Election Needle - Maple Leaf Sliding Scale")
 
 # Get main party seat projections
-lpc_seats = final_projection.get('LPC', 0)
-cpc_seats = final_projection.get('CPC', 0)
+lpc_seats = final_projection['LPC']['median']
+cpc_seats = final_projection['CPC']['median']
 
 # Map correctly:
 if lpc_seats >= MAJORITY_THRESHOLD:
@@ -67,11 +97,11 @@ else:
     slider_base = 0.625  # CPC Minority
 
 # Add slight jitter
-slider_position = np.clip(slider_base + np.random.normal(0, 0.01), 0, 1)
+slider_position = np.clip(slider_base + np.random.normal(0, 0.02), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Draw bar
+# Draw base bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
 # Color zones
@@ -84,56 +114,4 @@ ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majori
 ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
 # Labels
-ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
-ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
-ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
-ax.text(0.875, -0.3, "CPC Majority", ha='center', va='center', fontsize=10)
-
-ax.set_xlim(0, 1)
-ax.set_ylim(-0.6, 0.6)
-ax.axis('off')
-
-st.pyplot(fig)
-
-# ------------ PARTY MAJORITY / MINORITY PROBABILITIES ------------
-st.subheader("📊 Party Majority / Minority Chances")
-
-simulations = {party: np.random.normal(loc=seat_data.get(party, 0), scale=5, size=1000) for party in EXPECTED_PARTIES}
-
-cpc_sim = simulations['CPC']
-lpc_sim = simulations['LPC']
-
-cpc_majority_chance = (cpc_sim >= MAJORITY_THRESHOLD).mean()
-lpc_majority_chance = (lpc_sim >= MAJORITY_THRESHOLD).mean()
-
-cpc_lead_chance = (cpc_sim > lpc_sim).mean()
-lpc_lead_chance = (lpc_sim > cpc_sim).mean()
-
-cpc_minority_chance = cpc_lead_chance - cpc_majority_chance
-lpc_minority_chance = lpc_lead_chance - lpc_majority_chance
-
-st.markdown("### Conservatives (CPC)")
-st.write(f"• **Majority chance**: {cpc_majority_chance:.1%}")
-st.write(f"• **Minority lead chance**: {cpc_minority_chance:.1%}")
-
-st.markdown("### Liberals (LPC)")
-st.write(f"• **Majority chance**: {lpc_majority_chance:.1%}")
-st.write(f"• **Minority lead chance**: {lpc_minority_chance:.1%}")
-
-# ------------ FINAL WINNER / MAJORITY CALL ------------
-st.subheader("🎯 Live Majority / Minority Status")
-
-winner = max(seat_data.items(), key=lambda x: x[1])[0]
-winner_seats = seat_data[winner]
-
-st.write(f"### 🏆 **Current Leader**: {winner}")
-st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
-
-if winner_seats >= MAJORITY_THRESHOLD:
-    st.success(f"✅ {winner} currently projected to win a **Majority Government**!")
-else:
-    st.warning(f"⚠️ {winner} currently projected to lead a **Minority Government**.")
-
-# ------------ AUTO-REFRESH ------------
-st.experimental_rerun()
-time.sleep(30)
+ax.text(0.125,
