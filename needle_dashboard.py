@@ -56,81 +56,51 @@ seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
 
 st.table(seat_df)
 
-# ------------ NYT-STYLE CLOCK NEEDLE WITH MAJORITY/MINORITY ZONES ------------
-st.subheader("🧭 Final Needle - Clock Style with Zones")
+# ------------ MAPLE LEAF SLIDING SCALE NEEDLE ------------
+st.subheader("🍁 Final Election Needle - Maple Leaf Sliding Scale")
 
+# Calculate probabilities
 total_medians = sum(medians)
 probabilities = {party: (median / total_medians) for party, median in zip(parties, medians)}
 
 lpc_share = probabilities['LPC']
 cpc_share = probabilities['CPC']
 
-# Base deviation: from -1 (fully left) to +1 (fully right)
+# Base deviation: -1 (full Liberal majority) to +1 (full CPC majority)
 base_position = lpc_share / (lpc_share + cpc_share)
 deviation = (base_position - 0.5) * 2
 
 # Add slight jitter
-needle_jitter = np.random.normal(0, 0.02)
+needle_jitter = np.random.normal(0, 0.01)
 deviation = np.clip(deviation + needle_jitter, -1, 1)
 
-# Needle angle
-max_angle = math.radians(30)  # ±30 degrees
-needle_angle = deviation * max_angle
+# Map deviation [-1,1] to position [0,1]
+slider_position = (deviation + 1) / 2
 
-# Needle coordinates
-needle_length = 0.4
-center_x, center_y = 0.5, 0
-end_x = center_x + needle_length * math.sin(needle_angle)
-end_y = center_y + needle_length * math.cos(needle_angle)
+fig, ax = plt.subplots(figsize=(12, 2))
 
-fig, ax = plt.subplots(figsize=(8, 6))
+# Base bar
+ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
-# Draw arc
-arc = plt.Circle((0.5, 0), 0.5, color='lightgray', fill=False, linewidth=2)
-ax.add_artist(arc)
+# Color zones
+ax.barh(0, 0.25, height=0.2, color='#EF3B2C', alpha=0.4)         # Liberal Majority
+ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal Minority
+ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
+ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Shading areas
-# Minority left
-ax.fill_betweenx(
-    y=[0, 0.25],
-    x1=0.0,
-    x2=0.5 - 0.1,
-    color='lightblue',
-    alpha=0.2
-)
-# Minority right
-ax.fill_betweenx(
-    y=[0, 0.25],
-    x1=0.5 + 0.1,
-    x2=1.0,
-    color='lightcoral',
-    alpha=0.2
-)
-# Majority center
-ax.fill_betweenx(
-    y=[0, 0.25],
-    x1=0.5 - 0.1,
-    x2=0.5 + 0.1,
-    color='lightgreen',
-    alpha=0.2
-)
-
-# Draw the needle
-ax.plot([center_x, end_x], [center_y, end_y], color='black', linewidth=4)
-
-# Styling
-ax.set_xlim(0, 1)
-ax.set_ylim(-0.1, 0.6)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.axis('off')
+# Maple Leaf indicator
+ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
 # Labels
-ax.text(0.25, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
-ax.text(0.75, -0.05, "Minority Favored", ha='center', va='top', fontsize=10)
-ax.text(0.5, 0.45, "Majority Zone", ha='center', va='center', fontsize=12, weight='bold')
-ax.text(0.05, -0.1, "Liberals favored", ha='left', va='top', fontsize=10)
-ax.text(0.95, -0.1, "Conservatives favored", ha='right', va='top', fontsize=10)
+ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
+ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
+ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
+ax.text(0.875, -0.3, "CPC Majority", ha='center', va='center', fontsize=10)
+
+# Hide axes
+ax.set_xlim(0, 1)
+ax.set_ylim(-0.6, 0.6)
+ax.axis('off')
 
 st.pyplot(fig)
 
@@ -210,4 +180,3 @@ if len(history_tracker) > 1:
     ax3.legend()
 
     st.pyplot(fig3)
-
