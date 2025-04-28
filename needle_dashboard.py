@@ -9,26 +9,25 @@ import requests
 from bs4 import BeautifulSoup
 
 # ------------ SETTINGS ------------
-MAJORITY_THRESHOLD = 170
-EXPECTED_PARTIES = ['LPC', 'CPC', 'BQ', 'NDP', 'GPC', 'PPC']
+MAJORITY_THRESHOLD = 172  # Updated based on your screenshot (2025 election majority number)
+EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'GPC', 'Other']
 
 party_colors = {
     'LPC': '#EF3B2C',
     'CPC': '#1C3F94',
     'NDP': '#F5841F',
-    'BQ': '#49A2D6',
     'GPC': '#3D9B35',
-    'PPC': '#6F259C'
+    'Other': '#888888'
 }
 
 # ------------ STREAMLIT SETUP ------------
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
 st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("LIVE from Elections Canada")
+st.caption("LIVE Needle - Pulled directly from Elections Canada")
 
 # ------------ SCRAPE LIVE DATA ------------
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=30)  # Refresh every 30 seconds
 def scrape_live_seats():
     url = "https://enr.elections.ca/National.aspx?lang=e"
     headers = {
@@ -41,47 +40,30 @@ def scrape_live_seats():
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    table = soup.find('table', {'id': 'ctl00_ContentPlaceHolder1_grdNational'})
+    # Try parsing based on visible "Leading:" numbers
+    all_text = soup.get_text()
 
-    if table is None:
-        st.error("Could not find national seat counts table.")
+    if "Leading:" not in all_text:
+        st.error("Could not find 'Leading:' section on the page.")
         st.stop()
 
-    data = []
-    rows = table.find_all('tr')
+    leading_section = all_text.split("Leading:")[1].split("% of votes:")[0].strip()
+    numbers = [int(x) for x in leading_section.split() if x.replace(",", "").isdigit()]
 
-    for row in rows:
-        cols = row.find_all('td')
-        if len(cols) >= 2:
-            party_name = cols[0].text.strip()
-            seat_count_text = cols[1].text.strip()
+    if len(numbers) < 5:
+        st.error("Could not parse enough leading numbers.")
+        st.stop()
 
-            if seat_count_text.isdigit():
-                seats = int(seat_count_text)
-
-                # Normalize party names
-                if "Liberal" in party_name:
-                    party_code = "LPC"
-                elif "Conservative" in party_name:
-                    party_code = "CPC"
-                elif "Bloc" in party_name:
-                    party_code = "BQ"
-                elif "New Democratic" in party_name:
-                    party_code = "NDP"
-                elif "Green" in party_name:
-                    party_code = "GPC"
-                elif "People's" in party_name:
-                    party_code = "PPC"
-                else:
-                    party_code = None
-
-                if party_code:
-                    data.append((party_code, seats))
-
-    seat_data = dict(data)
+    seat_data = {
+        "CPC": numbers[0],
+        "GPC": numbers[1],
+        "LPC": numbers[2],
+        "NDP": numbers[3],
+        "Other": numbers[4]
+    }
     return seat_data
 
-# Load seat counts
+# ------------ LOAD LIVE RESULTS ------------
 seat_data = scrape_live_seats()
 
 # ------------ FINAL NUMBERS DISPLAY ------------
@@ -96,11 +78,10 @@ st.table(seat_df)
 # ------------ MAPLE LEAF SLIDING SCALE (SMART VERSION) ------------
 st.subheader("🍁 Live Election Needle")
 
-# Get main party seat projections
 lpc_seats = seat_data.get('LPC', 0)
 cpc_seats = seat_data.get('CPC', 0)
 
-# Map correctly:
+# Map needle position
 if lpc_seats >= MAJORITY_THRESHOLD:
     slider_base = 0.125  # Liberal Majority
 elif lpc_seats > cpc_seats:
@@ -110,12 +91,11 @@ elif cpc_seats >= MAJORITY_THRESHOLD:
 else:
     slider_base = 0.625  # CPC Minority
 
-# Add slight jitter
 slider_position = np.clip(slider_base + np.random.normal(0, 0.01), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Draw bar
+# Draw base bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 
 # Color zones
@@ -177,4 +157,3 @@ if winner_seats >= MAJORITY_THRESHOLD:
     st.success(f"✅ {winner} currently projected to win a **Majority Government**!")
 else:
     st.warning(f"⚠️ {winner} currently projected to lead a **Minority Government**.")
-
