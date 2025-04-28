@@ -178,8 +178,3 @@ live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
 live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
 
 st.table(live_seat_df)
-
-# ------------ 6. PREDICTED FINAL SEATS TABLE ------------
-st.subheader("📈 Predicted Final Seats (Again for clarity)")
-
-st.table(predicted_seat_df)
