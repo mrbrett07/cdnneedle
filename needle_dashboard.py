@@ -1,162 +1,214 @@
+# ---------- IMPORTS ----------
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+import math
+import requests
+from bs4 import BeautifulSoup
+import random
+from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Canada Election Needle", layout="centered")
+# ---------- SETTINGS ----------
+MAJORITY_THRESHOLD = 172
+EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC', 'Other']
 
-st.title("🌊 Canada Election Live Needle")
-
-# Constants
-MAJORITY_THRESHOLD = 170
-EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC']
-PARTY_FULLNAMES = {
-    'LPC': 'Liberal',
-    'CPC': 'Conservative',
-    'NDP': 'New Democratic Party',
-    'BQ': 'Bloc Quebecois',
-    'GPC': 'Green Party',
-    'PPC': "People's Party"
+BASELINE_338 = {
+    "LPC": 186,
+    "CPC": 124,
+    "BQ": 23,
+    "NDP": 9,
+    "GPC": 1,
+    "PPC": 0,
+    "Other": 0
 }
 
-# Baseline projections from 338Canada (April 28, 2025)
-BASELINE_PROJECTIONS = {
-    'LPC': 110,
-    'CPC': 160,
-    'NDP': 30,
-    'BQ': 30,
-    'GPC': 2,
-    'PPC': 1
-}
+# ---------- HELPER FUNCTION ----------
+def safe_int(cell):
+    try:
+        return int(cell.text.strip())
+    except:
+        return 0
 
-@st.cache_data(ttl=30)
+# ---------- SCRAPE LIVE DATA ----------
+@st.cache_data(ttl=5)
 def scrape_live_seats():
     url = "https://enr.elections.ca/National.aspx?lang=e"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        st.error(f"Failed to fetch Elections Canada page (Status {response.status_code})")
+        st.stop()
 
-    table = soup.find("table", {"id": "grdNationalDataBlock"})
-    rows = table.find_all("tr")
+    soup = BeautifulSoup(response.text, 'html.parser')
+    table = soup.find('table', {'id': 'grdNationalDataBlock'})
 
-    live_data = {
-        "CPC": 0,
-        "LPC": 0,
-        "BQ": 0,
-        "NDP": 0,
-        "GPC": 0,
-        "PPC": 0
+    if not table:
+        st.error("Could not find National Data Block table.")
+        st.stop()
+
+    rows = table.find_all('tr')
+    leading_row = rows[1]
+    cells = leading_row.find_all('td')
+
+    seat_data = {
+        "CPC": safe_int(cells[1]),
+        "GPC": safe_int(cells[2]),
+        "LPC": safe_int(cells[3]),
+        "NDP": safe_int(cells[4]),
+        "Other": safe_int(cells[5])
     }
+    return seat_data
 
-    for row in rows:
-        cells = row.find_all("td")
-        if len(cells) >= 2:
-            party_name = cells[0].get_text(strip=True)
-            if "Conservative" in party_name:
-                live_data["CPC"] = int(cells[1].text.strip())
-            elif "Liberal" in party_name:
-                live_data["LPC"] = int(cells[1].text.strip())
-            elif "Bloc" in party_name:
-                live_data["BQ"] = int(cells[1].text.strip())
-            elif "NDP" in party_name:
-                live_data["NDP"] = int(cells[1].text.strip())
-            elif "Green" in party_name:
-                live_data["GPC"] = int(cells[1].text.strip())
-            elif "People's Party" in party_name:
-                live_data["PPC"] = int(cells[1].text.strip())
-    
-    return live_data
+# ---------- BLEND LIVE WITH BASELINE ----------
+def predict_final_seats(live_data, baseline_data):
+    total_reported = sum(live_data.values())
+    if total_reported == 0:
+        return baseline_data.copy()
 
-def simulate_final_seats(live_data, baseline_data, num_simulations=10000):
+    prediction = {}
+    for party in EXPECTED_PARTIES:
+        live_seats = live_data.get(party, 0)
+        base_seats = baseline_data.get(party, 0)
+        weight_live = min(total_reported / 338.0, 1.0)
+        predicted = (live_seats / max(total_reported, 1)) * 338 * weight_live + base_seats * (1 - weight_live)
+        prediction[party] = int(round(predicted))
+    return prediction
+
+# ---------- SIMULATE ELECTIONS ----------
+def simulate_predictions(predicted_seat_data, num_simulations=1000):
+    total_reported = sum(live_seat_data.values())
+    uncertainty_scale = max(1.0 - (total_reported / 338.0), 0.2)
+
     simulations = []
     for _ in range(num_simulations):
         sim = {}
         for party in EXPECTED_PARTIES:
-            live = live_data.get(party, 0)
-            projected = baseline_data.get(party, 0)
-            remaining = max(projected - live, 0)
-            simulated_wins = np.random.binomial(remaining, 0.5)
-            sim[party] = live + simulated_wins
+            mean = predicted_seat_data.get(party, 0)
+            std_dev = max(5 * uncertainty_scale, 1)
+            seats = int(np.random.normal(mean, std_dev))
+            seats = max(seats, 0)
+            sim[party] = seats
         simulations.append(sim)
     return simulations
 
-def calculate_probabilities(simulations):
-    df = pd.DataFrame(simulations)
-    majority_liberal = (df['LPC'] >= MAJORITY_THRESHOLD).mean()
-    majority_conservative = (df['CPC'] >= MAJORITY_THRESHOLD).mean()
-    minority_liberal = ((df['LPC'] < MAJORITY_THRESHOLD) & (df['LPC'] > df['CPC'])).mean()
-    minority_conservative = ((df['CPC'] < MAJORITY_THRESHOLD) & (df['CPC'] > df['LPC'])).mean()
-    ndp_official = (df['NDP'] >= 12).mean()
-    return majority_liberal, majority_conservative, minority_liberal, minority_conservative, ndp_official
+# ---------- MAIN APP ----------
+st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
-def display_needle(winner, conf_level):
-    fig, ax = plt.subplots(figsize=(6, 1))
-    ax.barh([0], conf_level, color='red')
-    ax.set_xlim(0, 1)
-    ax.set_yticks([])
-    ax.set_title(f"Projected Winner: {PARTY_FULLNAMES.get(winner, winner)}", fontsize=16)
-    st.pyplot(fig)
-
-# Refresh every 30 seconds
-st_autorefresh = st.empty()
-with st_autorefresh.container():
-    time.sleep(30)
+st.title("🇨🇦 Canadian Federal Election 2025")
+st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada baseline")
 
 live_seat_data = scrape_live_seats()
 
-# Simulations
-simulations = simulate_final_seats(live_seat_data, BASELINE_PROJECTIONS)
-maj_L, maj_C, min_L, min_C, ndp_status = calculate_probabilities(simulations)
+# STOP if no live seats yet
+if sum(live_seat_data.values()) == 0:
+    st.error("⚠️ No live seats yet. Waiting for Elections Canada results...")
+    st.stop()
 
-# Current Projected Leader
-leader = max(live_seat_data, key=lambda x: live_seat_data[x])
-winner_seats = live_seat_data[leader]
+predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
-# Live Needle
-st.subheader("Live Needle")
-confidence = max(maj_L, maj_C, min_L, min_C)
-display_needle(leader, confidence)
+simulations = simulate_predictions(predicted_seat_data)
 
-# Projected Winner
-st.subheader("Projected Winner")
-st.write(f"**{PARTY_FULLNAMES.get(leader, leader)}**")
+# ---------- OUTCOME CALCULATIONS ----------
+lib_majority = 0
+lib_minority = 0
+cpc_majority = 0
+cpc_minority = 0
+ndp_official = 0
 
-# Projected Seats
-st.subheader("Projected Seats")
-final_seats = pd.DataFrame(simulations).mean().round(0).astype(int).to_dict()
-st.dataframe(pd.DataFrame(final_seats.items(), columns=["Party", "Projected Seats"]))
+for sim in simulations:
+    lpc = sim['LPC']
+    cpc = sim['CPC']
+    ndp = sim['NDP']
 
-# Outcome
-st.subheader("Projected Outcome")
-if leader == "CPC":
-    if winner_seats >= MAJORITY_THRESHOLD:
-        outcome = "Projected Conservative Majority"
-    else:
-        outcome = "Projected Conservative Minority"
-elif leader == "LPC":
-    if winner_seats >= MAJORITY_THRESHOLD:
-        outcome = "Projected Liberal Majority"
-    else:
-        outcome = "Projected Liberal Minority"
+    if lpc >= MAJORITY_THRESHOLD:
+        lib_majority += 1
+    elif lpc > cpc:
+        lib_minority += 1
+
+    if cpc >= MAJORITY_THRESHOLD:
+        cpc_majority += 1
+    elif cpc > lpc:
+        cpc_minority += 1
+
+    if ndp >= 12:
+        ndp_official += 1
+
+total_sim = len(simulations)
+
+# ---------- 1. LIVE NEEDLE ----------
+st.subheader("🍁 Live Election Needle")
+
+lpc_predicted = predicted_seat_data.get('LPC', 0)
+cpc_predicted = predicted_seat_data.get('CPC', 0)
+
+if lpc_predicted >= MAJORITY_THRESHOLD:
+    center_pos = 0.125
+elif lpc_predicted > cpc_predicted:
+    center_pos = 0.375
+elif cpc_predicted >= MAJORITY_THRESHOLD:
+    center_pos = 0.875
 else:
-    outcome = "Projected Minority Government"
-st.success(outcome)
+    center_pos = 0.625
 
-# Current Leading
-st.subheader("Current Leading")
-st.write(live_seat_data)
+slider_position = np.clip(center_pos + np.random.normal(0, 0.005), 0, 1)
 
-# Predicted Final Seats
-st.subheader("Predicted Final Seats")
-predicted_seats = pd.DataFrame(simulations).mean().round(0).astype(int)
-st.bar_chart(predicted_seats)
+fig, ax = plt.subplots(figsize=(12, 2))
+ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
+ax.barh(0, 0.25, height=0.2, color='#EF3B2C', alpha=0.4)
+ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)
+ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)
+ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4)
 
-# Extra Probabilities
-st.subheader("Chances:")
-st.write(f"Liberal Majority Chance: {maj_L*100:.1f}%")
-st.write(f"Conservative Majority Chance: {maj_C*100:.1f}%")
-st.write(f"Liberal Minority Chance: {min_L*100:.1f}%")
-st.write(f"Conservative Minority Chance: {min_C*100:.1f}%")
-st.write(f"NDP Official Party Status (12+ seats) Chance: {ndp_status*100:.1f}%")
+ax.annotate("🍁", xy=(slider_position, 0.05), ha='center', va='center', fontsize=28, fontweight='bold', color='black')
+
+ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
+ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
+ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
+ax.text(0.875, -0.3, "CPC Majority", ha='center', va='center', fontsize=10)
+
+ax.set_xlim(0, 1)
+ax.set_ylim(-0.6, 0.6)
+ax.axis('off')
+
+st.pyplot(fig)
+
+# ---------- 2. PROJECTED WINNER ----------
+st.subheader("🎯 Projected Winner")
+winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
+winner_seats = predicted_seat_data[winner]
+
+st.write(f"### 🏆 **Projected Winner**: {winner}")
+st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
+
+# ---------- 3. PROJECTED SEATS ----------
+st.subheader("📈 Projected Seats")
+predicted_seat_df = pd.DataFrame.from_dict(predicted_seat_data, orient='index', columns=['Predicted Seats'])
+predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
+st.table(predicted_seat_df)
+
+# ---------- 4. GREEN TEXT BOX OUTCOME ----------
+if winner_seats >= MAJORITY_THRESHOLD:
+    st.success(f"✅ {winner} projected to win a **Majority Government**!")
+else:
+    st.success(f"✅ {winner} projected to lead a **Minority Government**.")
+
+# ---------- 5. CHANCES DISPLAY ----------
+st.subheader("📊 Outcome Probabilities")
+
+st.write(f"🔴 Liberal Majority: **{lib_majority/total_sim:.1%}**")
+st.write(f"🔴 Liberal Minority: **{lib_minority/total_sim:.1%}**")
+st.write(f"🔵 CPC Majority: **{cpc_majority/total_sim:.1%}**")
+st.write(f"🔵 CPC Minority: **{cpc_minority/total_sim:.1%}**")
+st.write(f"🟠 NDP Official Party Status (12+ seats): **{ndp_official/total_sim:.1%}**")
+
+# ---------- 6. CURRENT LEADING SEATS ----------
+st.subheader("📋 Current Leading Seats")
+live_seat_df = pd.DataFrame.from_dict(live_seat_data, orient='index', columns=['Leading Seats'])
+live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
+st.table(live_seat_df)
+
+# ---------- 7. AUTO REFRESH EVERY 30 SECONDS ----------
+count = st_autorefresh(interval=30 * 1000, key="refresh")
