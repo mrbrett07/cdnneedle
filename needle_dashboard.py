@@ -113,10 +113,10 @@ def simulate_predictions(predicted_seat_data, num_simulations=1000):
     return simulations
 
 # ---------- MAIN APP ----------
-st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
+st.set_page_config(page_title="Canadian Election Predictions", layout="centered")
 
 st.title("\U0001F1E8\U0001F1E6 Canadian Federal Election 2025")
-st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada baseline")
+st.caption("LIVE Real-time prediction")
 
 live_seat_data = scrape_live_seats()
 
