@@ -193,7 +193,6 @@ ax.axis('off')
 st.pyplot(fig)
 
 # ---------- 2. PROJECTED WINNER ----------
-st.subheader("🎯 Projected Winner")
 winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
 winner_seats = predicted_seat_data[winner]
 
