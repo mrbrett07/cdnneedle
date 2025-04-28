@@ -19,7 +19,7 @@ BASELINE_338 = {
     "BQ": 23,
     "NDP": 9,
     "GPC": 1,
-    "PPC": 0
+    "PPC": 0,
 }
 
 # ---------- HELPER FUNCTION ----------
@@ -27,9 +27,12 @@ def safe_int(cell):
     try:
         return int(cell.text.strip())
     except:
-        return 0
+        try:
+            return int(cell.strip())
+        except:
+            return 0
 
-# ---------- SCRAPE LIVE DATA (UPDATED) ----------
+# ---------- SCRAPE LIVE DATA (UPDATED FULL SCRAPE) ----------
 @st.cache_data(ttl=5)
 def scrape_live_seats():
     url = "https://enr.elections.ca/National.aspx?lang=e"
@@ -40,31 +43,41 @@ def scrape_live_seats():
         st.stop()
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    table = soup.find('table', {'id': 'grdNationalDataBlock'})
+    table = soup.find('table', {'id': 'grdResultsucNationalResult0'})
+
     if not table:
-        st.error("Could not find National Data Block table.")
+        st.error("Could not find the detailed national results table.")
         st.stop()
 
-    rows = table.find_all('tr')
-    data_row = None
-    for row in rows:
-        if "Leading" in row.get_text():
-            data_row = row
-            break
-
-    if not data_row:
-        st.error("Could not find the 'Leading' row in the table.")
-        st.stop()
-
-    cells = data_row.find_all('td')
     seat_data = {
-        "CPC": safe_int(cells[1].find('p') if cells[1].find('p') else cells[1]),
-        "LPC": safe_int(cells[2].find('p') if cells[2].find('p') else cells[2]),
+        "CPC": 0,
+        "LPC": 0,
         "NDP": 0,
-        "BQ": safe_int(cells[4]),
+        "BQ": 0,
         "GPC": 0,
         "PPC": 0
     }
+
+    rows = table.find_all('tr')[1:]
+    for row in rows:
+        cols = row.find_all('td')
+        if len(cols) < 2:
+            continue
+        party_name = cols[0].get_text(strip=True)
+        seats = safe_int(cols[1])
+
+        if "Conservative" in party_name:
+            seat_data["CPC"] += seats
+        elif "Liberal" in party_name and "Libertarian" not in party_name:
+            seat_data["LPC"] += seats
+        elif "NDP" in party_name or "New Democratic" in party_name:
+            seat_data["NDP"] += seats
+        elif "Bloc" in party_name:
+            seat_data["BQ"] += seats
+        elif "Green" in party_name:
+            seat_data["GPC"] += seats
+        elif "PPC" in party_name or "People's Party" in party_name:
+            seat_data["PPC"] += seats
     return seat_data
 
 # ---------- BLEND LIVE WITH BASELINE ----------
