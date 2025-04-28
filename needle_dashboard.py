@@ -100,15 +100,10 @@ st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338
 
 live_seat_data = scrape_live_seats()
 
+# STOP if no live seats yet
 if sum(live_seat_data.values()) == 0:
-    st.warning("⚠️ No live seats yet. Simulating test data...")
-    live_seat_data = {
-        "CPC": random.randint(10, 50),
-        "GPC": random.randint(0, 3),
-        "LPC": random.randint(15, 60),
-        "NDP": random.randint(5, 20),
-        "Other": random.randint(0, 5)
-    }
+    st.error("⚠️ No live seats yet. Waiting for Elections Canada results...")
+    st.stop()
 
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
