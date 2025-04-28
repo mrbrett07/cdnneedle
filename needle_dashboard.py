@@ -38,7 +38,7 @@ party_colors = {
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
 st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada baseline")
+st.caption("LIVE Real-time prediction based")
 
 # ------------ SCRAPE LIVE DATA ------------
 @st.cache_data(ttl=30)  # Refresh every 30 seconds
