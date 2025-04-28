@@ -109,6 +109,14 @@ if sum(live_seat_data.values()) == 0:
 
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
+# ------------ 2. PROJECTED WINNER ------------
+
+winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
+winner_seats = predicted_seat_data[winner]
+
+st.write(f"### 🏆 **Projected Winner**: {winner}")
+st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
+
 # ------------ 1. LIVE NEEDLE ------------
 
 lpc_predicted = predicted_seat_data.get('LPC', 0)
@@ -145,14 +153,6 @@ ax.set_ylim(-0.6, 0.6)
 ax.axis('off')
 
 st.pyplot(fig)
-
-# ------------ 2. PROJECTED WINNER ------------
-
-winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
-winner_seats = predicted_seat_data[winner]
-
-st.write(f"### 🏆 **Projected Winner**: {winner}")
-st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
 
 # ------------ 3. PROJECTED SEATS ------------
 st.subheader("📈 Projected Seats")
