@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 
 # ---------- SETTINGS ----------
 MAJORITY_THRESHOLD = 172
-EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC', 'Other']
+EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC']
 
 BASELINE_338 = {
     "LPC": 186,
@@ -19,8 +19,7 @@ BASELINE_338 = {
     "BQ": 23,
     "NDP": 9,
     "GPC": 1,
-    "PPC": 0,
-    "Other": 0
+    "PPC": 0
 }
 
 # ---------- HELPER FUNCTION ----------
@@ -30,7 +29,7 @@ def safe_int(cell):
     except:
         return 0
 
-# ---------- SCRAPE LIVE DATA ----------
+# ---------- SCRAPE LIVE DATA (UPDATED) ----------
 @st.cache_data(ttl=5)
 def scrape_live_seats():
     url = "https://enr.elections.ca/National.aspx?lang=e"
@@ -42,21 +41,29 @@ def scrape_live_seats():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     table = soup.find('table', {'id': 'grdNationalDataBlock'})
-
     if not table:
         st.error("Could not find National Data Block table.")
         st.stop()
 
     rows = table.find_all('tr')
-    leading_row = rows[1]
-    cells = leading_row.find_all('td')
+    data_row = None
+    for row in rows:
+        if "Leading" in row.get_text():
+            data_row = row
+            break
 
+    if not data_row:
+        st.error("Could not find the 'Leading' row in the table.")
+        st.stop()
+
+    cells = data_row.find_all('td')
     seat_data = {
-        "CPC": safe_int(cells[1]),
-        "GPC": safe_int(cells[2]),
-        "LPC": safe_int(cells[3]),
-        "NDP": safe_int(cells[4]),
-        "Other": safe_int(cells[5])
+        "CPC": safe_int(cells[1].find('p') if cells[1].find('p') else cells[1]),
+        "LPC": safe_int(cells[2].find('p') if cells[2].find('p') else cells[2]),
+        "NDP": 0,
+        "BQ": safe_int(cells[4]),
+        "GPC": 0,
+        "PPC": 0
     }
     return seat_data
 
@@ -95,12 +102,11 @@ def simulate_predictions(predicted_seat_data, num_simulations=1000):
 # ---------- MAIN APP ----------
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
-st.title("🇨🇦 Canadian Federal Election 2025")
+st.title("\U0001F1E8\U0001F1E6 Canadian Federal Election 2025")
 st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada baseline")
 
 live_seat_data = scrape_live_seats()
 
-# STOP if no live seats yet
 if sum(live_seat_data.values()) == 0:
     st.error("⚠️ No live seats yet. Waiting for Elections Canada results...")
     st.stop()
