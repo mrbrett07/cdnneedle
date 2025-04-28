@@ -10,10 +10,10 @@ from bs4 import BeautifulSoup
 import random
 
 # ------------ SETTINGS ------------
-MAJORITY_THRESHOLD = 172  # Majority seats in 2025
+MAJORITY_THRESHOLD = 172
 EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC', 'Other']
 
-# 338Canada baseline (April 28, 2025)
+# 338Canada baseline as of April 28, 2025
 BASELINE_338 = {
     "LPC": 186,
     "CPC": 124,
@@ -38,7 +38,7 @@ party_colors = {
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
 st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada")
+st.caption("LIVE Needle — Real-time prediction from Elections Canada + 338Canada baseline")
 
 # ------------ SCRAPE LIVE DATA ------------
 @st.cache_data(ttl=30)
@@ -52,7 +52,6 @@ def scrape_live_seats():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     table = soup.find('table', {'id': 'grdNationalDataBlock'})
-
     if not table:
         st.error("Could not find National Data Block table.")
         st.stop()
@@ -110,49 +109,8 @@ if sum(live_seat_data.values()) == 0:
 
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
-# ------------ CONFIDENCE INTERVALS ------------
-total_reported = sum(live_seat_data.values())
-uncertainty_scale = max(1.0 - (total_reported / 338.0), 0.2)
-
-confidence_intervals = {}
-simulations = {}
-
-for party in EXPECTED_PARTIES:
-    mean = predicted_seat_data.get(party, 0)
-    std_dev = max(5 * uncertainty_scale, 1)
-    sim = np.random.normal(mean, std_dev, 1000)
-    simulations[party] = sim
-    lower = np.percentile(sim, 2.5)
-    upper = np.percentile(sim, 97.5)
-    confidence_intervals[party] = (int(lower), int(upper))
-
-# ------------ DISPLAY CURRENT LIVE LEADING SEATS ------------
-st.subheader("📋 Current Leading Seats")
-
-live_seat_df = pd.DataFrame.from_dict(live_seat_data, orient='index', columns=['Leading Seats'])
-live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
-live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
-
-st.table(live_seat_df)
-
-# ------------ DISPLAY PREDICTED FINAL SEATS ------------
-st.subheader("📈 Predicted Final Seats")
-
-predicted_seat_df = pd.DataFrame.from_dict(predicted_seat_data, orient='index', columns=['Predicted Seats'])
-predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
-predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
-
-st.table(predicted_seat_df)
-
-# ------------ DISPLAY CONFIDENCE INTERVALS ------------
-st.subheader("🔵 95% Confidence Intervals")
-
-conf_df = pd.DataFrame(confidence_intervals, index=['Lower Bound', 'Upper Bound']).T
-conf_df = conf_df.loc[EXPECTED_PARTIES]
-st.table(conf_df)
-
-# ------------ NEEDLE + CONFIDENCE BAND ------------
-st.subheader("🍁 Live Needle with Uncertainty")
+# ------------ 1. LIVE NEEDLE ------------
+st.subheader("🍁 Live Election Needle")
 
 lpc_predicted = predicted_seat_data.get('LPC', 0)
 cpc_predicted = predicted_seat_data.get('CPC', 0)
@@ -166,27 +124,18 @@ elif cpc_predicted >= MAJORITY_THRESHOLD:
 else:
     center_pos = 0.625
 
-# Calculate spread for confidence interval
-spread = uncertainty_scale * 0.15  # softer confidence band width
+slider_position = np.clip(center_pos + np.random.normal(0, 0.005), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
-
-# Colored zones
 ax.barh(0, 0.25, height=0.2, color='#EF3B2C', alpha=0.4)
 ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4)
 
-# Confidence band
-ax.fill_betweenx([-0.1, 0.1], max(center_pos - spread, 0), min(center_pos + spread, 1), color='gray', alpha=0.3)
-
-# Maple Leaf position
-slider_position = np.clip(center_pos + np.random.normal(0, 0.005), 0, 1)
 ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
-# Labels
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
 ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
 ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
@@ -198,7 +147,7 @@ ax.axis('off')
 
 st.pyplot(fig)
 
-# ------------ FINAL WINNER BASED ON PREDICTIONS ------------
+# ------------ 2. PROJECTED WINNER ------------
 st.subheader("🎯 Projected Winner")
 
 winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
@@ -207,7 +156,31 @@ winner_seats = predicted_seat_data[winner]
 st.write(f"### 🏆 **Projected Winner**: {winner}")
 st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
 
+# ------------ 3. PROJECTED SEATS ------------
+st.subheader("📈 Projected Seats")
+
+predicted_seat_df = pd.DataFrame.from_dict(predicted_seat_data, orient='index', columns=['Predicted Seats'])
+predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
+
+st.table(predicted_seat_df)
+
+# ------------ 4. GREEN TEXT BOX ------------
 if winner_seats >= MAJORITY_THRESHOLD:
     st.success(f"✅ {winner} projected to win a **Majority Government**!")
 else:
-    st.warning(f"⚠️ {winner} projected to lead a **Minority Government**.")
+    st.success(f"✅ {winner} projected to lead a **Minority Government**.")
+
+# ------------ 5. CURRENT LEADING SEATS ------------
+st.subheader("📋 Current Leading Seats")
+
+live_seat_df = pd.DataFrame.from_dict(live_seat_data, orient='index', columns=['Leading Seats'])
+live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
+
+st.table(live_seat_df)
+
+# ------------ 6. PREDICTED FINAL SEATS TABLE ------------
+st.subheader("📈 Predicted Final Seats (Again for clarity)")
+
+st.table(predicted_seat_df)
