@@ -7,17 +7,12 @@ import math
 import requests
 from bs4 import BeautifulSoup
 import random
-import time
-
-# ---------- AUTO-REFRESH 30 SECONDS ----------
-time.sleep(30)
-st.experimental_rerun()
+from streamlit_autorefresh import st_autorefresh  # NEW
 
 # ---------- SETTINGS ----------
 MAJORITY_THRESHOLD = 172
 EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC', 'Other']
 
-# 338Canada baseline as of April 28, 2025
 BASELINE_338 = {
     "LPC": 186,
     "CPC": 124,
@@ -29,7 +24,7 @@ BASELINE_338 = {
 }
 
 # ---------- SCRAPE LIVE DATA ----------
-@st.cache_data(ttl=5)  # refresh Elections Canada scrape every 5 seconds
+@st.cache_data(ttl=5)
 def scrape_live_seats():
     url = "https://enr.elections.ca/National.aspx?lang=e"
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -222,3 +217,6 @@ live_seat_df = pd.DataFrame.from_dict(live_seat_data, orient='index', columns=['
 live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
 live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
 st.table(live_seat_df)
+
+# ---------- 7. AUTO REFRESH EVERY 30 SECONDS ----------
+count = st_autorefresh(interval=30 * 1000, key="refresh")
