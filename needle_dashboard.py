@@ -7,7 +7,7 @@ import math
 import requests
 from bs4 import BeautifulSoup
 import random
-from streamlit_autorefresh import st_autorefresh  # NEW
+from streamlit_autorefresh import st_autorefresh
 
 # ---------- SETTINGS ----------
 MAJORITY_THRESHOLD = 172
@@ -22,6 +22,13 @@ BASELINE_338 = {
     "PPC": 0,
     "Other": 0
 }
+
+# ---------- HELPER FUNCTION ----------
+def safe_int(cell):
+    try:
+        return int(cell.text.strip())
+    except:
+        return 0
 
 # ---------- SCRAPE LIVE DATA ----------
 @st.cache_data(ttl=5)
@@ -45,11 +52,11 @@ def scrape_live_seats():
     cells = leading_row.find_all('td')
 
     seat_data = {
-        "CPC": int(cells[1].text.strip()),
-        "GPC": int(cells[2].text.strip()),
-        "LPC": int(cells[3].text.strip()),
-        "NDP": int(cells[4].text.strip()),
-        "Other": int(cells[5].text.strip())
+        "CPC": safe_int(cells[1]),
+        "GPC": safe_int(cells[2]),
+        "LPC": safe_int(cells[3]),
+        "NDP": safe_int(cells[4]),
+        "Other": safe_int(cells[5])
     }
     return seat_data
 
@@ -94,7 +101,7 @@ st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338
 live_seat_data = scrape_live_seats()
 
 if sum(live_seat_data.values()) == 0:
-    st.warning("⚠️ No live seats yet. Simulating fake data...")
+    st.warning("⚠️ No live seats yet. Simulating test data...")
     live_seat_data = {
         "CPC": random.randint(10, 50),
         "GPC": random.randint(0, 3),
@@ -158,16 +165,7 @@ ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4)
 
-# Draw Maple Leaf manually
-ax.annotate(
-    "🍁",
-    xy=(slider_position, 0.05),
-    ha='center',
-    va='center',
-    fontsize=28,
-    fontweight='bold',
-    color='black'
-)
+ax.annotate("🍁", xy=(slider_position, 0.05), ha='center', va='center', fontsize=28, fontweight='bold', color='black')
 
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
 ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
@@ -182,7 +180,6 @@ st.pyplot(fig)
 
 # ---------- 2. PROJECTED WINNER ----------
 st.subheader("🎯 Projected Winner")
-
 winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
 winner_seats = predicted_seat_data[winner]
 
