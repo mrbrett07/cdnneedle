@@ -109,12 +109,6 @@ if sum(live_seat_data.values()) == 0:
 
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
-# ------------ 4. GREEN TEXT BOX ------------
-if winner_seats >= MAJORITY_THRESHOLD:
-    st.success(f"✅ {winner} projected to win a **Majority Government**!")
-else:
-    st.success(f"✅ {winner} projected to lead a **Minority Government**.")
-
 # ------------ 2. PROJECTED WINNER ------------
 
 winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
@@ -122,6 +116,12 @@ winner_seats = predicted_seat_data[winner]
 
 st.write(f"### 🏆 **Projected Winner**: {winner}")
 st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
+
+# ------------ 4. GREEN TEXT BOX ------------
+if winner_seats >= MAJORITY_THRESHOLD:
+    st.success(f"✅ {winner} projected to win a **Majority Government**!")
+else:
+    st.success(f"✅ {winner} projected to lead a **Minority Government**.")
 
 # ------------ LIVE NEEDLE ------------
 
