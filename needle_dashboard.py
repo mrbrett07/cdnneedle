@@ -1,4 +1,4 @@
-# Add after predicting final seats
+# ---------- IMPORTS ----------
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,6 +7,12 @@ import math
 import requests
 from bs4 import BeautifulSoup
 import random
+import time  # <--- NEW
+
+# ---------- AUTO-REFRESH 30 SECONDS ----------
+time.sleep(30)
+st.experimental_rerun()
+
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 172
