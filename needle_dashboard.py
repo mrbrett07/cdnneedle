@@ -110,7 +110,6 @@ if sum(live_seat_data.values()) == 0:
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
 # ------------ 1. LIVE NEEDLE ------------
-st.subheader("🍁 Live Election Needle")
 
 lpc_predicted = predicted_seat_data.get('LPC', 0)
 cpc_predicted = predicted_seat_data.get('CPC', 0)
