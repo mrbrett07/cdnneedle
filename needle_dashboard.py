@@ -163,6 +163,7 @@ predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype
 predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
 
 st.table(predicted_seat_df)
+
 # ------------ 4. GREEN TEXT BOX ------------
 if winner_seats >= MAJORITY_THRESHOLD:
     st.success(f"✅ {winner} projected to win a **Majority Government**!")
