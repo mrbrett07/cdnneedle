@@ -9,14 +9,27 @@ import requests
 from bs4 import BeautifulSoup
 
 # ------------ SETTINGS ------------
-MAJORITY_THRESHOLD = 172  # Based on 2025 election (your screenshot)
-EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'GPC', 'Other']
+MAJORITY_THRESHOLD = 172  # Updated for 2025 election
+EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'BQ', 'GPC', 'PPC', 'Other']
+
+# 338Canada baseline as of April 28, 2025
+BASELINE_338 = {
+    "LPC": 186,
+    "CPC": 124,
+    "BQ": 23,
+    "NDP": 9,
+    "GPC": 1,
+    "PPC": 0,
+    "Other": 0
+}
 
 party_colors = {
     'LPC': '#EF3B2C',
     'CPC': '#1C3F94',
     'NDP': '#F5841F',
+    'BQ': '#49A2D6',
     'GPC': '#3D9B35',
+    'PPC': '#6F259C',
     'Other': '#888888'
 }
 
@@ -24,7 +37,7 @@ party_colors = {
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
 st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("LIVE Needle - Pulled directly from Elections Canada")
+st.caption("LIVE Needle — Real-time prediction based on Elections Canada + 338Canada baseline")
 
 # ------------ SCRAPE LIVE DATA ------------
 @st.cache_data(ttl=30)  # Refresh every 30 seconds
@@ -40,20 +53,16 @@ def scrape_live_seats():
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Find the specific national results table
     table = soup.find('table', {'id': 'grdNationalDataBlock'})
-
     if not table:
         st.error("Could not find National Data Block table.")
         st.stop()
 
     rows = table.find_all('tr')
-
     if len(rows) < 2:
-        st.error("National Data Block table doesn't have expected number of rows.")
+        st.error("National Data Block table doesn't have expected rows.")
         st.stop()
 
-    # The second row is the leading seat counts
     leading_row = rows[1]
     cells = leading_row.find_all('td')
 
@@ -61,7 +70,7 @@ def scrape_live_seats():
         st.error("Not enough cells in leading row.")
         st.stop()
 
-    # Cells[1] = Conservative, Cells[2] = Green, Cells[3] = Liberal, Cells[4] = NDP, Cells[5] = Other
+    # Cells[1] = CPC, [2] = GPC, [3] = LPC, [4] = NDP, [5] = Other
     seat_data = {
         "CPC": int(cells[1].text.strip()),
         "GPC": int(cells[2].text.strip()),
@@ -71,30 +80,59 @@ def scrape_live_seats():
     }
     return seat_data
 
-# ------------ LOAD LIVE RESULTS ------------
-seat_data = scrape_live_seats()
+# ------------ BLEND LIVE DATA WITH BASELINE ------------
+def predict_final_seats(live_data, baseline_data):
+    total_baseline_seats = sum(baseline_data.values())
+    total_reported = sum(live_data.values())
 
-# ------------ FINAL NUMBERS DISPLAY ------------
-st.subheader("📋 Current Projected Seat Totals")
+    if total_reported == 0:
+        return baseline_data.copy()  # No results yet, fallback to 338
 
-seat_df = pd.DataFrame.from_dict(seat_data, orient='index', columns=['Projected Seats'])
-seat_df = seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
-seat_df = seat_df.sort_values(by='Projected Seats', ascending=False)
+    prediction = {}
+    for party in EXPECTED_PARTIES:
+        live_seats = live_data.get(party, 0)
+        base_seats = baseline_data.get(party, 0)
+        
+        # Blend: weight live results more as more seats report
+        weight_live = min(total_reported / 338.0, 1.0)  # Scale 0 to 1
+        predicted = (live_seats / max(total_reported, 1)) * 338 * weight_live + base_seats * (1 - weight_live)
+        prediction[party] = int(round(predicted))
 
-st.table(seat_df)
+    return prediction
 
-# ------------ MAPLE LEAF SLIDING SCALE (SMART VERSION) ------------
-st.subheader("🍁 Live Election Needle")
+# ------------ LOAD DATA ------------
+live_seat_data = scrape_live_seats()
+predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
-lpc_seats = seat_data.get('LPC', 0)
-cpc_seats = seat_data.get('CPC', 0)
+# ------------ DISPLAY CURRENT LIVE LEADING SEATS ------------
+st.subheader("📋 Current Leading Seats")
 
-# Map needle position
-if lpc_seats >= MAJORITY_THRESHOLD:
+live_seat_df = pd.DataFrame.from_dict(live_seat_data, orient='index', columns=['Leading Seats'])
+live_seat_df = live_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+live_seat_df = live_seat_df.sort_values(by='Leading Seats', ascending=False)
+
+st.table(live_seat_df)
+
+# ------------ DISPLAY PREDICTED FINAL SEATS ------------
+st.subheader("📈 Predicted Final Seats (Live Adjusted)")
+
+predicted_seat_df = pd.DataFrame.from_dict(predicted_seat_data, orient='index', columns=['Predicted Seats'])
+predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype(int)
+predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
+
+st.table(predicted_seat_df)
+
+# ------------ MAPLE LEAF SLIDING SCALE BASED ON PREDICTIONS ------------
+st.subheader("🍁 Live Election Needle (Based on Predicted Results)")
+
+lpc_predicted = predicted_seat_data.get('LPC', 0)
+cpc_predicted = predicted_seat_data.get('CPC', 0)
+
+if lpc_predicted >= MAJORITY_THRESHOLD:
     slider_base = 0.125  # Liberal Majority
-elif lpc_seats > cpc_seats:
+elif lpc_predicted > cpc_predicted:
     slider_base = 0.375  # Liberal Minority
-elif cpc_seats >= MAJORITY_THRESHOLD:
+elif cpc_predicted >= MAJORITY_THRESHOLD:
     slider_base = 0.875  # CPC Majority
 else:
     slider_base = 0.625  # CPC Minority
@@ -103,19 +141,14 @@ slider_position = np.clip(slider_base + np.random.normal(0, 0.01), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
-# Draw base bar
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
-
-# Color zones
 ax.barh(0, 0.25, height=0.2, color='#EF3B2C', alpha=0.4)         # Liberal Majority
 ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)  # Liberal Minority
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)  # CPC Minority
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4) # CPC Majority
 
-# Maple Leaf emoji
 ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
 
-# Labels
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
 ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
 ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
@@ -127,41 +160,16 @@ ax.axis('off')
 
 st.pyplot(fig)
 
-# ------------ PARTY MAJORITY / MINORITY PROBABILITIES ------------
-st.subheader("📊 Party Majority / Minority Chances")
+# ------------ WINNER / MAJORITY CALL BASED ON PREDICTIONS ------------
+st.subheader("🎯 Live Majority / Minority Status (Predicted)")
 
-simulations = {party: np.random.normal(loc=seat_data.get(party, 0), scale=5, size=1000) for party in EXPECTED_PARTIES}
+winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
+winner_seats = predicted_seat_data[winner]
 
-cpc_sim = simulations['CPC']
-lpc_sim = simulations['LPC']
-
-cpc_majority_chance = (cpc_sim >= MAJORITY_THRESHOLD).mean()
-lpc_majority_chance = (lpc_sim >= MAJORITY_THRESHOLD).mean()
-
-cpc_lead_chance = (cpc_sim > lpc_sim).mean()
-lpc_lead_chance = (lpc_sim > cpc_sim).mean()
-
-cpc_minority_chance = cpc_lead_chance - cpc_majority_chance
-lpc_minority_chance = lpc_lead_chance - lpc_majority_chance
-
-st.markdown("### Conservatives (CPC)")
-st.write(f"• **Majority chance**: {cpc_majority_chance:.1%}")
-st.write(f"• **Minority lead chance**: {cpc_minority_chance:.1%}")
-
-st.markdown("### Liberals (LPC)")
-st.write(f"• **Majority chance**: {lpc_majority_chance:.1%}")
-st.write(f"• **Minority lead chance**: {lpc_minority_chance:.1%}")
-
-# ------------ FINAL WINNER / MAJORITY CALL ------------
-st.subheader("🎯 Live Majority / Minority Status")
-
-winner = max(seat_data.items(), key=lambda x: x[1])[0]
-winner_seats = seat_data[winner]
-
-st.write(f"### 🏆 **Current Leader**: {winner}")
+st.write(f"### 🏆 **Projected Winner**: {winner}")
 st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
 
 if winner_seats >= MAJORITY_THRESHOLD:
-    st.success(f"✅ {winner} currently projected to win a **Majority Government**!")
+    st.success(f"✅ {winner} projected to win a **Majority Government**!")
 else:
-    st.warning(f"⚠️ {winner} currently projected to lead a **Minority Government**.")
+    st.warning(f"⚠️ {winner} projected to lead a **Minority Government**.")
