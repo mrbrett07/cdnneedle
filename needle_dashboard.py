@@ -109,6 +109,33 @@ if sum(live_seat_data.values()) == 0:
 
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
+# ------------ CALCULATE OUTCOMES ------------
+lib_majority = 0
+lib_minority = 0
+cpc_majority = 0
+cpc_minority = 0
+ndp_official = 0
+
+for sim in simulations:
+    lpc = sim['LPC']
+    cpc = sim['CPC']
+    ndp = sim['NDP']
+
+    if lpc >= MAJORITY_THRESHOLD:
+        lib_majority += 1
+    elif lpc > cpc:
+        lib_minority += 1
+
+    if cpc >= MAJORITY_THRESHOLD:
+        cpc_majority += 1
+    elif cpc > lpc:
+        cpc_minority += 1
+
+    if ndp >= 12:
+        ndp_official += 1
+
+total_sim = len(simulations)
+
 # ------------ 2. PROJECTED WINNER ------------
 
 winner = max(predicted_seat_data.items(), key=lambda x: x[1])[0]
@@ -170,6 +197,15 @@ ax.set_ylim(-0.6, 0.6)
 ax.axis('off')
 
 st.pyplot(fig)
+
+# ------------ 5. CHANCES DISPLAY ------------
+st.subheader("📊 Outcome Probabilities")
+
+st.write(f"🔴 Liberal Majority: **{lib_majority/total_sim:.1%}**")
+st.write(f"🔴 Liberal Minority: **{lib_minority/total_sim:.1%}**")
+st.write(f"🔵 CPC Majority: **{cpc_majority/total_sim:.1%}**")
+st.write(f"🔵 CPC Minority: **{cpc_minority/total_sim:.1%}**")
+st.write(f"🟠 NDP Official Party Status (12+ seats): **{ndp_official/total_sim:.1%}**")
 
 # ------------ 3. PROJECTED SEATS ------------
 st.subheader("📈 Projected Seats")
