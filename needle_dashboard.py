@@ -38,7 +38,7 @@ party_colors = {
 st.set_page_config(page_title="Canadian Election LIVE Needle", layout="centered")
 
 st.title("🇨🇦 Canadian Federal Election 2025")
-st.caption("LIVE Needle — Real-time prediction from Elections Canada + 338Canada baseline")
+st.caption("LIVE Real-time predictions")
 
 # ------------ SCRAPE LIVE DATA ------------
 @st.cache_data(ttl=30)
@@ -163,7 +163,6 @@ predicted_seat_df = predicted_seat_df.reindex(EXPECTED_PARTIES).fillna(0).astype
 predicted_seat_df = predicted_seat_df.sort_values(by='Predicted Seats', ascending=False)
 
 st.table(predicted_seat_df)
-
 # ------------ 4. GREEN TEXT BOX ------------
 if winner_seats >= MAJORITY_THRESHOLD:
     st.success(f"✅ {winner} projected to win a **Majority Government**!")
