@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # ------------ SETTINGS ------------
-MAJORITY_THRESHOLD = 172  # Updated based on your screenshot (2025 election majority number)
+MAJORITY_THRESHOLD = 172  # Based on 2025 election (your screenshot)
 EXPECTED_PARTIES = ['LPC', 'CPC', 'NDP', 'GPC', 'Other']
 
 party_colors = {
@@ -40,26 +40,34 @@ def scrape_live_seats():
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Try parsing based on visible "Leading:" numbers
-    all_text = soup.get_text()
+    # Find the specific national results table
+    table = soup.find('table', {'id': 'grdNationalDataBlock'})
 
-    if "Leading:" not in all_text:
-        st.error("Could not find 'Leading:' section on the page.")
+    if not table:
+        st.error("Could not find National Data Block table.")
         st.stop()
 
-    leading_section = all_text.split("Leading:")[1].split("% of votes:")[0].strip()
-    numbers = [int(x) for x in leading_section.split() if x.replace(",", "").isdigit()]
+    rows = table.find_all('tr')
 
-    if len(numbers) < 5:
-        st.error("Could not parse enough leading numbers.")
+    if len(rows) < 2:
+        st.error("National Data Block table doesn't have expected number of rows.")
         st.stop()
 
+    # The second row is the leading seat counts
+    leading_row = rows[1]
+    cells = leading_row.find_all('td')
+
+    if len(cells) < 6:
+        st.error("Not enough cells in leading row.")
+        st.stop()
+
+    # Cells[1] = Conservative, Cells[2] = Green, Cells[3] = Liberal, Cells[4] = NDP, Cells[5] = Other
     seat_data = {
-        "CPC": numbers[0],
-        "GPC": numbers[1],
-        "LPC": numbers[2],
-        "NDP": numbers[3],
-        "Other": numbers[4]
+        "CPC": int(cells[1].text.strip()),
+        "GPC": int(cells[2].text.strip()),
+        "LPC": int(cells[3].text.strip()),
+        "NDP": int(cells[4].text.strip()),
+        "Other": int(cells[5].text.strip())
     }
     return seat_data
 
