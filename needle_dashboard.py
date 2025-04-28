@@ -117,7 +117,7 @@ winner_seats = predicted_seat_data[winner]
 st.write(f"### 🏆 **Projected Winner**: {winner}")
 st.write(f"### 🪧 **Projected Seats**: {winner_seats}")
 
-# ------------ 1. LIVE NEEDLE ------------
+# ------------ LIVE NEEDLE ------------
 
 lpc_predicted = predicted_seat_data.get('LPC', 0)
 cpc_predicted = predicted_seat_data.get('CPC', 0)
@@ -135,14 +135,25 @@ slider_position = np.clip(center_pos + np.random.normal(0, 0.005), 0, 1)
 
 fig, ax = plt.subplots(figsize=(12, 2))
 
+# Background bars
 ax.barh(0, 1, height=0.2, color='lightgray', edgecolor='black')
 ax.barh(0, 0.25, height=0.2, color='#EF3B2C', alpha=0.4)
 ax.barh(0, 0.25, left=0.25, height=0.2, color='#EF3B2C', alpha=0.2)
 ax.barh(0, 0.25, left=0.5, height=0.2, color='#1C3F94', alpha=0.2)
 ax.barh(0, 0.25, left=0.75, height=0.2, color='#1C3F94', alpha=0.4)
 
-ax.text(slider_position, 0.05, "🍁", ha='center', va='center', fontsize=28)
+# Draw Maple Leaf manually
+ax.annotate(
+    "🍁",
+    xy=(slider_position, 0.05),
+    ha='center',
+    va='center',
+    fontsize=28,
+    fontweight='bold',
+    color='black'
+)
 
+# Labels
 ax.text(0.125, -0.3, "Liberal Majority", ha='center', va='center', fontsize=10)
 ax.text(0.375, -0.3, "Liberal Minority", ha='center', va='center', fontsize=10)
 ax.text(0.625, -0.3, "CPC Minority", ha='center', va='center', fontsize=10)
@@ -153,6 +164,7 @@ ax.set_ylim(-0.6, 0.6)
 ax.axis('off')
 
 st.pyplot(fig)
+
 
 # ------------ 3. PROJECTED SEATS ------------
 st.subheader("📈 Projected Seats")
