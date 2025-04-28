@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import math
 import requests
 from bs4 import BeautifulSoup
+import random
 
 # ------------ SETTINGS ------------
 MAJORITY_THRESHOLD = 172  # Updated for 2025 election
@@ -102,6 +103,18 @@ def predict_final_seats(live_data, baseline_data):
 
 # ------------ LOAD DATA ------------
 live_seat_data = scrape_live_seats()
+
+# ------------ SIMULATE RANDOM TEST DATA IF ALL 0s ------------
+if sum(live_seat_data.values()) == 0:
+    st.warning("⚠️ No live seats reported yet. Simulating random results for testing...")
+    live_seat_data = {
+        "CPC": random.randint(10, 50),
+        "GPC": random.randint(0, 3),
+        "LPC": random.randint(15, 60),
+        "NDP": random.randint(5, 20),
+        "Other": random.randint(0, 5)
+    }
+
 predicted_seat_data = predict_final_seats(live_seat_data, BASELINE_338)
 
 # ------------ DISPLAY CURRENT LIVE LEADING SEATS ------------
